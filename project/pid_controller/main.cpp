@@ -218,15 +218,20 @@ int main ()
   /**
   * TODO (Step 1): create pid (pid_steer) for steer command and initialize values
   **/
-
+  PID pid_steer = PID();
+  pid_steer.Init(0.3, 0.01, 0.7, 1.2, -1.2);
 
   // initialize pid throttle
   /**
   * TODO (Step 1): create pid (pid_throttle) for throttle command and initialize values
   **/
-
-  PID pid_steer = PID();
   PID pid_throttle = PID();
+  pid_throttle.Init(0.2, 0.001,0.02, 1, -1);
+  
+  
+  
+//   PID pid_steer = PID();
+//   PID pid_throttle = PID();
 
   h.onMessage([&pid_steer, &pid_throttle, &new_delta_time, &timer, &prev_timer, &i, &prev_timer](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode)
   {
@@ -288,8 +293,8 @@ int main ()
           /**
           * TODO (step 3): uncomment these lines
           **/
-//           // Update the delta time with the previous command
-//           pid_steer.UpdateDeltaTime(new_delta_time);
+          // Update the delta time with the previous command
+          pid_steer.UpdateDeltaTime(new_delta_time);
 
           // Compute steer error
           double error_steer;
@@ -300,23 +305,45 @@ int main ()
           /**
           * TODO (step 3): compute the steer error (error_steer) from the position and the desired trajectory
           **/
-//           error_steer = 0;
+          
+          // Calculate the desired angle (desired_yaw) to reach the planned position from 
+          // the car's current position (x_position, y_position)
+          
+          int closest_waypoint = -1;
+          double closest_distance = std::numeric_limits<double>::infinity();
+          for (int i=0; i<x_points.size(); i++){
+            double distance = std::sqrt( std::pow(x_points[i]-x_position, 2) + std::pow(y_points[i]-y_position, 2) );
+              if (distance < closest_distance){
+                closest_distance = distance;
+                closest_waypoint = i;
+              }
+          }
+          cout << "x_position : " << x_position << endl;
+          cout << "y_position : " << y_position << endl;
+          cout << "x_points[closest_waypoint]: " << x_points[closest_waypoint] << endl;
+          cout << "y_points[closest_waypoint]: " << y_points[closest_waypoint] << endl;
+          closest_waypoint = (closest_waypoint + 1) % x_points.size();
+          
+          double desired_yaw = angle_between_points(x_position,y_position,x_points[closest_waypoint],y_points[closest_waypoint]);
+          
+          // Compute the error between the actual yaw and the desired_yaw
+          error_steer = desired_yaw - yaw;
 
           /**
           * TODO (step 3): uncomment these lines
           **/
-//           // Compute control to apply
-//           pid_steer.UpdateError(error_steer);
-//           steer_output = pid_steer.TotalError();
+          // Compute control to apply
+          pid_steer.UpdateError(error_steer);
+          steer_output = pid_steer.TotalError();
 
-//           // Save data
-//           file_steer.seekg(std::ios::beg);
-//           for(int j=0; j < i - 1; ++j) {
-//               file_steer.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-//           }
-//           file_steer  << i ;
-//           file_steer  << " " << error_steer;
-//           file_steer  << " " << steer_output << endl;
+          // Save data
+          file_steer.seekg(std::ios::beg);
+          for(int j=0; j < i - 1; ++j) {
+              file_steer.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+          }
+          file_steer  << i ;
+          file_steer  << " " << error_steer;
+          file_steer  << " " << steer_output << endl;
 
           ////////////////////////////////////////
           // Throttle control
@@ -326,15 +353,26 @@ int main ()
           * TODO (step 2): uncomment these lines
           **/
 //           // Update the delta time with the previous command
-//           pid_throttle.UpdateDeltaTime(new_delta_time);
+          pid_throttle.UpdateDeltaTime(new_delta_time);
 
           // Compute error of speed
           double error_throttle;
+//           cout << "velocity: " << velocity << endl;
+//           cout << "v_points.back(): " << v_points.back() << endl;
           /**
           * TODO (step 2): compute the throttle error (error_throttle) from the position and the desired speed
           **/
           // modify the following line for step 2
-          error_throttle = 0;
+          // Get the desired speed from the last point of v_points vector
+//           double desired_speed = v_points[closest_waypoint];
+          double desired_speed = v_points.back();
+          
+          // Compute the speed error (desired speed - actual speed)
+          // If the actual speed is greater than the desired speed, the error will be positive
+          // and the controller will reduce the throttle command. Conversely, if the actual speed
+          // is lower than the desired speed, the error will be negative and the controller will
+          // increase the throttle command.
+          error_throttle = desired_speed - velocity;
 
 
 
@@ -344,28 +382,28 @@ int main ()
           /**
           * TODO (step 2): uncomment these lines
           **/
-//           // Compute control to apply
-//           pid_throttle.UpdateError(error_throttle);
-//           double throttle = pid_throttle.TotalError();
+          // Compute control to apply
+          pid_throttle.UpdateError(error_throttle);
+          double throttle = pid_throttle.TotalError();
 
-//           // Adapt the negative throttle to break
-//           if (throttle > 0.0) {
-//             throttle_output = throttle;
-//             brake_output = 0;
-//           } else {
-//             throttle_output = 0;
-//             brake_output = -throttle;
-//           }
+          // Adapt the negative throttle to break
+          if (throttle > 0.0) {
+            throttle_output = throttle;
+            brake_output = 0;
+          } else {
+            throttle_output = 0;
+            brake_output = -throttle;
+          }
 
-//           // Save data
-//           file_throttle.seekg(std::ios::beg);
-//           for(int j=0; j < i - 1; ++j){
-//               file_throttle.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
-//           }
-//           file_throttle  << i ;
-//           file_throttle  << " " << error_throttle;
-//           file_throttle  << " " << brake_output;
-//           file_throttle  << " " << throttle_output << endl;
+          // Save data
+          file_throttle.seekg(std::ios::beg);
+          for(int j=0; j < i - 1; ++j){
+              file_throttle.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
+          }
+          file_throttle  << i ;
+          file_throttle  << " " << error_throttle;
+          file_throttle  << " " << brake_output;
+          file_throttle  << " " << throttle_output << endl;
 
 
           // Send control
