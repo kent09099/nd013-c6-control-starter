@@ -10,8 +10,8 @@ The upper plot shows the steer error between desired trajectory and actual traje
 
 The lower plot shows the throttle error. We can see the error is highter compared to the steer.
 
-![plot steer](project/plot_steer.png)
-![plot steer](project/plot_throttle.png)
+![plot steer](plot_steer.png)
+![plot steer](plot_throttle.png)
 
 
 
